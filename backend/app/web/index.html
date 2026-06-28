@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbes — Your AI Assistant</title>
+  <style>
+    :root {
+      --bg: #0e0f1a; --panel: #181a2b; --panel2: #20233a;
+      --accent: #6c5ce7; --text: #e8e8f0; --muted: #9aa0b4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: #e8e8f0; height: 100vh; display: flex;
+      flex-direction: column; align-items: center; justify-content: center;
+    }
+    .card {
+      background: var(--panel); border-radius: 18px; padding: 28px;
+      width: min(420px, 92vw); box-shadow: 0 12px 40px rgba(0,0,0,.4);
+    }
+    .logo { text-align: center; font-size: 40px; }
+    h1 { text-align: center; margin: 6px 0 2px; font-size: 24px; }
+    .sub { text-align: center; color: var(--muted); margin-bottom: 22px; }
+    input, button {
+      width: 100%; padding: 13px 14px; border-radius: 10px; border: 1px solid #2c2f48;
+      background: var(--panel2); color: #e8e8f0; font-size: 15px; margin-bottom: 12px;
+    }
+    button {
+      background: var(--accent); border: none; font-weight: 600; cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: default; }
+    .err { color: #ff6b6b; font-size: 13px; min-height: 18px; text-align: center; }
+
+    /* Chat layout */
+    #chat { display: none; width: min(760px, 96vw); height: 92vh;
+      flex-direction: column; background: var(--panel); border-radius: 16px;
+      overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+    .bar { display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; background: var(--panel2); }
+    .bar h2 { margin: 0; font-size: 18px; }
+    .bar button { width: auto; margin: 0; padding: 8px 14px; background: transparent;
+      border: 1px solid #3a3e5c; }
+    #log { flex: 1; overflow-y: auto; padding: 18px; display: flex;
+      flex-direction: column; gap: 10px; }
+    .msg { max-width: 78%; padding: 11px 14px; border-radius: 14px; line-height: 1.45;
+      white-space: pre-wrap; word-wrap: break-word; }
+    .user { align-self: flex-end; background: var(--accent); }
+    .bot { align-self: flex-start; background: var(--panel2); }
+    .inputbar { display: flex; gap: 8px; padding: 12px; background: var(--panel2); }
+    .inputbar input { margin: 0; }
+    .inputbar button { width: auto; margin: 0; padding: 0 20px; }
+  </style>
+</head>
+<body>
+  <!-- Login -->
+  <div class="card" id="login">
+    <div class="logo">🪐</div>
+    <h1>Orbes</h1>
+    <div class="sub">Your AI assistant</div>
+    <input id="email" type="email" placeholder="Email" autocomplete="username" />
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+    <button id="loginBtn">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+
+  <!-- Chat -->
+  <div id="chat">
+    <div class="bar">
+      <h2>🪐 Orbes</h2>
+      <button id="logoutBtn">Sign out</button>
+    </div>
+    <div id="log"></div>
+    <div class="inputbar">
+      <input id="input" placeholder="Ask Orbes anything…" autocomplete="off" />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const API = ""; // same origin
+    let token = localStorage.getItem("orbes_token");
+    let conversationId = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function showChat() {
+      $("login").style.display = "none";
+      $("chat").style.display = "flex";
+      $("input").focus();
+    }
+    function showLogin() {
+      $("chat").style.display = "none";
+      $("login").style.display = "block";
+    }
+
+    async function login() {
+      $("loginErr").textContent = "";
+      $("loginBtn").disabled = true;
+      try {
+        const body = new URLSearchParams();
+        body.set("username", $("email").value.trim());
+        body.set("password", $("password").value);
+        const res = await fetch(API + "/auth/login", { method: "POST", body });
+        if (!res.ok) throw new Error("bad creds");
+        const data = await res.json();
+        token = data.access_token;
+        localStorage.setItem("orbes_token", token);
+        showChat();
+      } catch (e) {
+        $("loginErr").textContent = "Login failed. Check your email and password.";
+      } finally {
+        $("loginBtn").disabled = false;
+      }
+    }
+
+    function addMsg(text, who) {
+      const div = document.createElement("div");
+      div.className = "msg " + (who === "user" ? "user" : "bot");
+      div.textContent = text;
+      $("log").appendChild(div);
+      $("log").scrollTop = $("log").scrollHeight;
+      return div;
+    }
+
+    async function send() {
+      const text = $("input").value.trim();
+      if (!text) return;
+      $("input").value = "";
+      addMsg(text, "user");
+      const thinking = addMsg("…", "bot");
+      try {
+        const res = await fetch(API + "/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ message: text, conversation_id: conversationId }),
+        });
+        if (res.status === 401) { logout(); return; }
+        const data = await res.json();
+        conversationId = data.conversation_id;
+        thinking.textContent = data.reply;
+      } catch (e) {
+        thinking.textContent = "Error reaching the server.";
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("orbes_token");
+      token = null;
+      conversationId = null;
+      $("log").innerHTML = "";
+      showLogin();
+    }
+
+    $("loginBtn").onclick = login;
+    $("logoutBtn").onclick = logout;
+    $("sendBtn").onclick = send;
+    $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+    $("input").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+
+    if (token) showChat();
+  </script>
+</body>
+</html>

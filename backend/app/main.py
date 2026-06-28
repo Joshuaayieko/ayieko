@@ -2,9 +2,11 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from .config import settings
 from .database import init_db
@@ -46,6 +48,9 @@ app.include_router(tools.router)
 app.include_router(vision.router)
 
 
+WEB_DIR = Path(__file__).resolve().parent / "web"
+
+
 @app.get("/")
 def root():
     return {
@@ -53,7 +58,14 @@ def root():
         "version": "0.1.0",
         "status": "ok",
         "docs": "/docs",
+        "web_ui": "/app",
     }
+
+
+@app.get("/app")
+def web_app():
+    """Serve the built-in browser chat UI."""
+    return FileResponse(WEB_DIR / "index.html")
 
 
 @app.get("/health")
