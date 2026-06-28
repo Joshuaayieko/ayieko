@@ -1,0 +1,32 @@
+# Render Blueprint for Orbes.
+# In the Render dashboard: New + > Blueprint > connect this repo. Render reads
+# this file and provisions the service. Fill in the secret env vars when prompted.
+services:
+  - type: web
+    name: orbes-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # Auto-generated strong secret for signing JWTs.
+      - key: ORBES_SECRET_KEY
+        generateValue: true
+      # Secrets you enter in the Render dashboard (never committed to git).
+      - key: ORBES_ADMIN_EMAIL
+        sync: false
+      - key: ORBES_ADMIN_PASSWORD
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # SQLite by default. Note: Render's free tier disk is ephemeral, so the
+      # admin account is re-seeded on every deploy. For persistent conversation
+      # history, set this to a Postgres URL (see DEPLOY.md).
+      - key: ORBES_DATABASE_URL
+        value: "sqlite:///./orbes.db"
+      - key: ORBES_LLM_MODEL
+        value: "claude-opus-4-8"
