@@ -1,0 +1,35 @@
+# Secrets
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Databases
+*.db
+*.sqlite3
+backend/orbes.db
+
+# Vector store
+backend/chroma/
+*.faiss
+
+# Flutter / Dart
+mobile_app/flutter/.dart_tool/
+mobile_app/flutter/.packages
+mobile_app/flutter/build/
+mobile_app/flutter/.flutter-plugins
+mobile_app/flutter/.flutter-plugins-dependencies
+mobile_app/flutter/ios/Pods/
+mobile_app/flutter/android/.gradle/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
